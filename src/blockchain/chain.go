@@ -34,7 +34,7 @@ func NewChain() (c *Chain, err error) {
 		BlockUpdate:         make(chan BlockUpdate, 1),
 		KeyShares:           make(chan map[string]ElectionSecret, 1),
 		SeenTrs:             make(chan map[string]bool, 1),
-		head:                NewBlock(),
+		head:                NewBlock(c),
 		blocks:              make(chan []Block, 1),
 		//Tally:		     make(chan big.Float, 0.0),
 	}
@@ -182,7 +182,7 @@ loop:
 
 			for _, tr := range blockPool {
 				// signatures have been verified before being added to the pool
-				c.head.addTransaction(&tr)
+				c.head.addTransaction(&tr, c)
 			}
 
 			blocks := <-c.blocks
@@ -214,7 +214,7 @@ loop:
 
 				// notify what transactions we were working with
 				c.CurrentTransactions <- tmpTrs
-				c.head = NewBlock()
+				c.head = NewBlock(c)
 				confirmStopped <- true
 
 				goto start
@@ -233,7 +233,7 @@ loop:
 				c.blocks <- append(blocks, *c.head)
 
 				bl := *c.head
-				c.head = NewBlock()
+				c.head = NewBlock(c)
 				ballots := c.CollectBallots()
 				//fmt.Println(ballots)
 				format := c.GetFormat()
@@ -242,6 +242,8 @@ loop:
 				tally, err := format.Tally(ballots, &key)
 				if err != nil {
 					fmt.Println("Error calculating tally")
+					fmt.Print("********************")
+					fmt.Println(err)
 				}
 				c.Tally =tally.String()
 				

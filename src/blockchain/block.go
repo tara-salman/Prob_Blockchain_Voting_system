@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"fmt"
+	"github.com/CPSSD/voting/src/election"
 )
 
 // Block contains a set of transactions, a proof of work, and
@@ -18,6 +20,7 @@ type Block struct {
 	Transactions []Transaction
 	Header       BlockHeader
 	Proof        [32]byte
+	Tally        string
 }
 
 // BlockHeader contains the hash of the block's transactions,
@@ -29,12 +32,45 @@ type BlockHeader struct {
 	Timestamp  uint32
 	Nonce      uint32
 }
+//Collect Block Ballots
+func (b *Block) CollectBallots() *[]election.Ballot {
+	//log.Println("Gathering ballots from the chain")
+	//blocks := <-c.blocks
+	//c.blocks <- blocks
+
+	ballots := make([]election.Ballot, 0)
+
+	//for _, bl := range blocks {
+	for _, tr := range b.Transactions {
+		ballots = append(ballots, tr.Ballot)
+	}
+	//}
+	//log.Println("Collected the ballots from the chain")
+	//fmt.Printf("%#v",&ballots)
+	return &ballots
+}
 
 // NewBlock returns an empty initalized block.
-func NewBlock() (b *Block) {
+func NewBlock(c *Chain) (b *Block) {
 	b = &Block{
 		Transactions: make([]Transaction, 0, blockSize),
 	}
+	if c==nil{
+		fmt.Println("Null chain")
+		b.Tally =""
+		return b
+	}
+	ballots := b.CollectBallots()
+	format := c.GetFormat()
+	//fmt.Println("Error calculating tally")
+	key := c.GetElectionKey()
+	tally, err := format.Tally(ballots, &key)
+	if err != nil {
+		fmt.Println("Error calculating tally")
+		fmt.Print("********************")
+		fmt.Println(err)
+	}
+	b.Tally =tally.String()
 	return b
 }
 
@@ -46,6 +82,8 @@ func (b Block) String() (str string) {
 	str = str + "\n // Parent Proof:  " + hex.EncodeToString(b.Header.ParentHash[:15])
 	//str = str + "\n // Nonce:         " + fmt.Sprint(b.Header.Nonce)
 	str = str + "\n\n"
+	str = str + "\n // Tally:  " + b.Tally
+	str = str + "\n"
 	for i, t := range b.Transactions {
 		str = str + "Transaction " + strconv.Itoa(i) + ": " + t.String() + "\n"
 	}
@@ -53,9 +91,25 @@ func (b Block) String() (str string) {
 }
 
 // addTransaction will add a transaction to a block.
-func (b *Block) addTransaction(t *Transaction) (isFull bool) {
+func (b *Block) addTransaction(t *Transaction, c *Chain) (isFull bool) {
 	log.Println("Adding transaction")
 	b.Transactions = append(b.Transactions, *t)
+	if c==nil{
+		fmt.Println("Null chain")
+		b.Tally =""
+		return len(b.Transactions) == cap(b.Transactions)
+	}
+	ballots := b.CollectBallots()
+	format := c.GetFormat()
+	//fmt.Println("Error calculating tally")
+	key := c.GetElectionKey()
+	tally, err := format.Tally(ballots, &key)
+	if err != nil {
+		fmt.Println("Error calculating tally")
+		fmt.Print("********************")
+		fmt.Println(err)
+	}
+	b.Tally =tally.String()
 	return len(b.Transactions) == cap(b.Transactions)
 }
 
