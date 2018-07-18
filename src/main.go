@@ -18,9 +18,10 @@ var (
 )
 
 func main() {
-
+	
 	f, err := os.OpenFile(os.Args[1]+".log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
 	if err != nil {
+		fmt.Println("Can't open file")		
 		panic(err)
 	}
 	defer f.Close()
@@ -30,10 +31,11 @@ func main() {
 
 	c, err := blockchain.NewChain()
 	if err != nil {
+		fmt.Println("Can't do a chain ")		
 		panic(err)
 	}
-
 	log.Println("Setting up network config")
+
 	filename := string(os.Args[1])
 
 	c.Init(filename)
@@ -63,9 +65,13 @@ func main() {
 	ballot := new(election.Ballot)
 	vote, er :=  strconv.ParseFloat(os.Args[2],64)
 	vote2 := 1-vote
-	err = ballot.Fill(c.GetFormat(), tokenMsg,vote, vote2)
+	eventID, er2 :=  strconv.ParseFloat(os.Args[3],64)
+	err = ballot.Fill(c.GetFormat(), tokenMsg,vote, vote2, eventID)
 	if er != nil {
 		fmt.Println("Error with input vote")
+	}
+	if er2 != nil {
+		fmt.Println("Error with input eventID")
 	}
 	if err != nil {
 		log.Printf("Error filling out the ballot")

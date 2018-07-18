@@ -26,6 +26,7 @@ type Ballot struct {
 type Selection struct {
 	Name  string   // name of this selection option
 	Vote  *big.Float // value should be encrypted with PrivKE
+	EventID *big.Float
 	Proof []byte   // value used as the zero-knowledge proof
 }
 
@@ -40,7 +41,7 @@ type Format struct {
 // Fill uses the defined Format f and the VoteToken vt and
 // takes a user through the prompts to fill out a ballot.
 // The ballot is returned in the value of b.
-func (b *Ballot) Fill(f Format, vt string, input float64, input2 float64) (err error) {
+func (b *Ballot) Fill(f Format, vt string, input float64, input2 float64, input3 float64) (err error) {
 	if len(f.Selections) != f.NumSelections {
 		return InvalidFormatError
 	}
@@ -49,16 +50,19 @@ func (b *Ballot) Fill(f Format, vt string, input float64, input2 float64) (err e
 	b.NumSelections = f.NumSelections
 	b.Selections = make([]Selection, f.NumSelections)
 	vote := big.NewFloat(float64(input))
+	eventID:= big.NewFloat(float64(input3))
 	selection := Selection{
 			Name:  "Attack",
 			Vote:  vote,
+			EventID: eventID,
 			Proof: make([]byte, 0),
 		}
 	b.Selections[0] = selection
 	vote = big.NewFloat(float64(input2))
 	selection = Selection{
 			Name:  "Normal",
-			Vote: vote ,
+			Vote: vote,
+			EventID: eventID,
 			Proof: make([]byte, 0),
 		}
 	b.Selections[1] = selection
@@ -123,18 +127,20 @@ func CreateFormat() (f *Format) {
 // Tally represents a map of selection names to their
 // total counts.
 type Tally struct {
-	Totals map[string]*big.Float
-	STD map[string]*big.Float
-	CI map[string] string
+	Results map[string][][]string
+	//STD map[string]*big.Float
+	//CI map[string] string
+	//EventID map[string]*big.Float
 }
 
 // String representation of a Tally.
 func (t Tally) String() (str string) {
-	for name, result := range t.Totals {
-		str = str + name + ": " + result.String() + " percent\t"
-		str = str + "STD : " + t.STD[name].String() + "\t"
-		str = str+ "CI:" + t.CI[name]+"\n"
-	}
+	//for name, _ := range t.Results {
+		//str = str + name + ": " + result.String() + " percent\t"
+	str = str + fmt.Sprintf("%v " ,t.Results) + "\t"
+		//str = str + "ID : " + t.EventID[name].String() + "\t"
+		//str = str+ "CI:" + t.CI[name]+"\n"
+	//}
 	return str
 }
 
@@ -144,29 +150,32 @@ func (t Tally) String() (str string) {
 func (f *Format) Tally(bs *[]Ballot, key *crypto.PrivateKey) (t *Tally, err error) {
 
 	t = &Tally{
-		Totals: make(map[string]*big.Float, 0),
-		STD: make(map[string]*big.Float, 0),
-		CI: make(map[string]string, 0),
+		Results: make(map[string][][]string, 0),
+		//STD: make(map[string]*big.Float, 0),
+		//CI: make(map[string]string, 0),
+		//EventID: make(map[string]*big.Float, 0),
 	}
 
-	selectionCounts := make(map[string][]*big.Float, 0)
+	selectionCounts := make(map[string][][]*big.Float, 0)
 
 	for _, s := range f.Selections {
-		selectionCounts[s.Name] = make([]*big.Float, len(*bs))
+		selectionCounts[s.Name] = make([][]*big.Float, len(*bs))
+		//fmt.Printf("*********%#v",len(selectionCounts[s.Name]))	
 	}
 
 	for i, b := range *bs {
 		for _, s := range b.Selections {
 			if _, ok := selectionCounts[s.Name]; ok {
-				selectionCounts[s.Name][i] = s.Vote
-				//fmt.Printf("%#v",selectionCounts[s.Name][i])
+				selectionCounts[s.Name][i] = []*big.Float{s.EventID,s.Vote}
+				//selectionCounts[s.Name][i][1] = s.Vote
+			
 			}
 		}
 	}
-
+	
 	// TODO: decrypt each sub tally
 	for name, count := range selectionCounts {		
-		mean,std,ci, err := key.AddCipherTexts(count...)
+		results, err := key.AddCipherTexts(count)
 		if err != nil {
 			return t, err
 		}
@@ -174,9 +183,11 @@ func (f *Format) Tally(bs *[]Ballot, key *crypto.PrivateKey) (t *Tally, err erro
 		if err != nil {
 			return t, err
 		}*/
-		t.Totals[name] = mean
-		t.STD[name]=std
-		t.CI[name]= ci
+		t.Results[name] = results
+		//t.STD[name]=std
+		//t.CI[name]= ci
+		//t.EventID[name]= eventID
+		//fmt.Printf(t.CI[name])
 	}
 	return t, err
 }
@@ -185,9 +196,10 @@ func (b Ballot) String() (str string) {
 	
 	str = str+ "\n "
 	for _, s := range b.Selections {
-		str = str + " // Selection:    " + s.Name
-		str = str + "        Vote:    " + fmt.Sprint(s.Vote)
-		str = str+ "\n \t\t"
+		str = str + " *****" + s.Name+"*****"
+		str= str+ "\n eventID:    "+fmt.Sprint(s.EventID)
+		str = str + "\n Probability:    " + fmt.Sprint(s.Vote)
+		str = str+ "\n"
 	}
 
 	return str

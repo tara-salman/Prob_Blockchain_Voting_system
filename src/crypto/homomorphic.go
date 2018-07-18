@@ -6,22 +6,62 @@ import (
 	//"math"
 	//"fmt"
 )
+//function constains check if an int is in a list 
+func contains(s [] *big.Float, e *big.Float) bool {
+    for _, a := range s {
+        if (a.Cmp(e)==0) {
+            return true
+        }
+    }
+    return false
+}
 
+type Events struct {
+	id *big.Float  
+	votes [] *big.Float
+}
+type EventsUnClassified struct {
+	ids [] *big.Float  
+	votes [] *big.Float
+}
+// ListEvents function take all decisions and return the list of events included 
+func ListEvents ( votes [][] *big.Float) []Events {
+	var ids [] *big.Float
+	var events [] Events
+	 
+	for m,_:=range votes{ 
+		if (! contains(ids, votes[m][0])) {
+			ids= append(ids, votes[m][0])
+			var e Events
+			e.id= votes[m][0]
+			e.votes= append(e.votes,votes[m][1])
+			events= append(events,e)
+			
+		} else {
+		 for i,event := range events{
+		 	if (event.id.Cmp(votes[m][0])==0) {
+				event.votes= append(event.votes,votes[m][1])
+				events[i]=event
+				
+				}}
+		}}
+	return events
+}
 // AddCipherTexts returns the encrypted sum of the
 // individual ciphertexts. Calling this function using
 // a PrivateKey will result in the function being called
 // for the PublicKey.
-func (key *PrivateKey) AddCipherTexts(ciphertexts ...*big.Float) (mean *big.Float, std *big.Float, ci string, err error) {
-	mean, std, ci, err = key.PublicKey.AddCipherTexts(ciphertexts...)
+
+func (key *PrivateKey) AddCipherTexts(ciphertexts [][]*big.Float) (results [][]string,err error) {
+	results, err = key.PublicKey.AddCipherTexts(ciphertexts)
 	return
 }
-
 // AddCipherTexts accepts one or more ciphertexts
 // and returns the homomorphic sums of them.
-func (key *PublicKey) AddCipherTexts(ciphertexts ...*big.Float) (mean *big.Float, std *big.Float, ci string, err error) {
+func (key *PublicKey) AddCipherTexts(ciphertexts [][]*big.Float) ( results [][]string,err error) {
 
 	if err = key.Validate(); err != nil {
-		return nil, nil, "",err
+		return results, err
 	}
 
 	// create an encryption of voting value zero to start off
@@ -41,12 +81,44 @@ func (key *PublicKey) AddCipherTexts(ciphertexts ...*big.Float) (mean *big.Float
 	if x==0 {
 		return mean, nil }
 	mean= new(big.Float).Quo(mean,new(big.Float).SetInt64(int64(x)))*/
-	mean = Mean(ciphertexts)
-	std = StandardDeviation(ciphertexts)
-	//fmt.Printf("%0.2f \n", v)
-	lower, upper := NormalConfidenceInterval(ciphertexts)
-	ci = "["+lower.String()+","+upper.String()+"]"
-	return mean, std, ci, nil
+	var ids [] *big.Float
+	//fmt.Printf("*********************************************")
+	for a,_  := range ciphertexts {
+		if (! contains(ids, ciphertexts[a][0])) {
+			ids= append(ids, ciphertexts[a][0])
+		}}
+	var votes [][]*big.Float
+	for a, _ := range ciphertexts {
+			votes= append(votes,[]*big.Float{ciphertexts[a][0],ciphertexts[a][1]})
+	}
+	//fmt.Printf("*********************************************")
+	var votesPerEvent [] Events
+	votesPerEvent = ListEvents(votes)
+	//fmt.Printf("*****************************%0.2f", len(ciphertexts ))
+	for i, _:= range votesPerEvent {
+		results =append(results, []string{"id",votesPerEvent[i].id.String(), "mean",Mean(votesPerEvent[i].votes).String(), "std",StandardDeviation(votesPerEvent[i].votes).String()})
+		//std = StandardDeviation(votesPerEvent[i].votes)
+		//fmt.Printf("**************************%0.2f \n", votesPerEvent[i].id)
+		//lower, upper := NormalConfidenceInterval(votesPerEvent[i].votes)
+		//ci = "["+lower.String()+","+upper.String()+"]"
+		//eventID= votesPerEvent[i].id
+	}
+	//var neededTx []* Transaction
+	// Then it compares the previous block transaction and append if the same id is found 
+	//for _, n := range previousBlocktxs {
+	//	if (contains(ids, n.EventID())) {
+	//		neededTx = append (neededTx,n)
+	//	}}
+	//if mean == nil{ 
+	//	mean=new(big.Float).SetInt64(int64(0))}
+	//if std ==nil {
+	//	std=new(big.Float).SetInt64(int64(0))}
+	//if eventID==nil {
+	//	eventID=new(big.Float).SetInt64(int64(0))}
+	//if ci=="" {
+	//	ci=""
+	//}
+	return results, nil
 }
 // Mean returns the mean of an integer array as a float
 func Mean(nums [] *big.Float) (mean *big.Float) {
@@ -58,7 +130,7 @@ func Mean(nums [] *big.Float) (mean *big.Float) {
 	for _, n := range nums {
 		mean = new(big.Float).Add(mean,n)
 	}
-	return (new(big.Float).Quo(mean,new(big.Float).SetInt64(int64(len(nums)))))
+	return (new(big.Float).Quo(new(big.Float).Mul(mean,new(big.Float).SetInt64(int64(100))),new(big.Float).SetInt64(int64(len(nums)))))
 }
 
 func StandardDeviation(nums [] *big.Float) (dev *big.Float) {
