@@ -74,7 +74,7 @@ func main() {
 		fmt.Println("Error with input eventID")
 	}
 	if err != nil {
-		log.Printf("Error filling out the ballot")
+		log.Println("Error filling out the ballot")
 	} else {
 		tr := c.NewTransaction(token, ballot)
 		fmt.Printf("%#v \n",tr)
