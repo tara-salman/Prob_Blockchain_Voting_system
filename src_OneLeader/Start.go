@@ -56,7 +56,7 @@ func main() {
 	fmt.Println("Welcome to voting system.")
 	
 	sum := 1
-	for sum < 4{
+	for sum < 11{
 		bc.Decide( strconv.FormatFloat(float64(sum)/float64(100), 'E', -1, 64), "1")		
 		sum += 1
 	} 	
@@ -151,9 +151,9 @@ func (bc *Blockchain) Init (logname string,leader string) {
 
 //	log.Println("Setting up network config")
 
-	var syncDelay int = 5
+	var syncDelay int = 10
 	
-	wg.Add(20000)
+	wg.Add(4)
 	bc.chain.Start(leader, syncDelay, quit, stop, start, confirm, &wg)
 	start <- true
 	//bc.chain = c
@@ -161,7 +161,7 @@ func (bc *Blockchain) Init (logname string,leader string) {
 }
 func  (bc *Blockchain) Decide(input string, eventIDs string) {
 	vt := bc.chain.GetVoteToken()
-	//log.Println("Hello")
+	log.Println("Hello")
 	fmt.Println("Your vote token is:", vt)
 	token := vt
 	ballot := new(election.Ballot)

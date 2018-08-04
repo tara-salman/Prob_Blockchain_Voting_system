@@ -2,6 +2,6 @@ package blockchain
 
 var (
 	hashingDelay      = 1
-	blockSize         = 5
+	blockSize         = 10
 	proofDifficultyBl = 1
 )

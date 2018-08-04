@@ -23,7 +23,6 @@ type Chain struct {
 	SeenTrs             chan map[string]bool
 	head                *Block
 	blocks              chan []Block
-	tmpblocks	    chan []Block
 	conf                Configuration
 	Tally		    string
 }
@@ -229,7 +228,7 @@ loop:
 			stop:=true 
 			/*if (c.GetVoteToken()==leader){
 			*/
-			//time.Sleep(time.Duration(rand.Intn(10)) * time.Second)
+			time.Sleep(time.Duration(rand.Intn(10)) * time.Second)
 			stop = c.head.CalculateHash(stopMining)
 			//	stop =false
 			//}
@@ -414,7 +413,6 @@ loop:
 			if valid {
 
 				log.Println("Sending signal to stop mining")
-								
 				stopMining <- true
 
 				_ = <-confirmStopped

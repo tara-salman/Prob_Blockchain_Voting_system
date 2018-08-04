@@ -23,7 +23,6 @@ type Chain struct {
 	SeenTrs             chan map[string]bool
 	head                *Block
 	blocks              chan []Block
-	tmpblocks	    chan []Block
 	conf                Configuration
 	Tally		    string
 }
@@ -50,7 +49,7 @@ func NewChain() (c *Chain, err error) {
 	blocks := make([]Block, 0)
 	c.Tally = " Not Calculated yet"
 	c.blocks <- blocks
-	rand.Seed(time.Now().UTC().UnixNano())			
+	rand.Seed(1)			
 	return c, nil
 }
 
@@ -159,7 +158,7 @@ loop:
 
 			// Get the pool and see if it is longer than the constant blockSize
 			pool := <-c.TransactionPool
-			//fmt.Println(len(pool))
+			fmt.Println(len(pool))
 			if len(pool) >= blockSize {
 				// if so, we will put blockSize worth of transactions into
 				// the TransactionsReady channel, and replace the rest of the
@@ -227,12 +226,10 @@ loop:
 			//leader <-leaderNo
 			//fmt.Println(leaderNo)
 			stop:=true 
-			/*if (c.GetVoteToken()==leader){
-			*/
-			//time.Sleep(time.Duration(rand.Intn(10)) * time.Second)
-			stop = c.head.CalculateHash(stopMining)
+			if (c.GetVoteToken()==leader){
+				stop = c.head.CalculateHash()
 			//	stop =false
-			//}
+			}
 			/*if (leaderNo==1 && c.GetVoteToken()=="Bp"){
 				stop = c.head.CalculateHash(stopMining)
 				
@@ -256,7 +253,7 @@ loop:
 					}
 				}
 			}*/
-			//fmt.Println(stop) */
+			//fmt.Println(stop) 
 			if stop {
 				
 				log.Println("Mining process received signal to stop activities")
@@ -414,8 +411,7 @@ loop:
 			if valid {
 
 				log.Println("Sending signal to stop mining")
-								
-				stopMining <- true
+				//stopMining <- true
 
 				_ = <-confirmStopped
 				log.Println("We have stopped mining")

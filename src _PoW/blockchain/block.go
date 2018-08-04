@@ -7,12 +7,11 @@ import (
 	"encoding/json"
 	"log"
 	//"reflect"
-	"math/rand"
 	"strconv"
-	//"strings"
+	"strings"
 	"time"
 	"fmt"
-	//"os"
+	"os"
 	"github.com/CPSSD/voting/src/election"
 )
 
@@ -23,8 +22,6 @@ type Block struct {
 	Header       BlockHeader
 	Proof        [32]byte
 	Tally        string
-	Stake 	     int
-	Creator	     string
 }
 
 // BlockHeader contains the hash of the block's transactions,
@@ -60,7 +57,7 @@ func NewBlock(c *Chain) (b *Block) {
 		Transactions: make([]Transaction, 0, blockSize),
 	}
 	if c==nil{
-	//	fmt.Println("Null chain")
+		fmt.Println("Null chain")
 		b.Tally =""
 		return b
 	}
@@ -75,7 +72,6 @@ func NewBlock(c *Chain) (b *Block) {
 		fmt.Println(err)
 	}
 	b.Tally =tally.String()
-	b.Creator= c.GetVoteToken()
 	return b
 }
 
@@ -92,7 +88,6 @@ func (b Block) String() (str string) {
 	for i, t := range b.Transactions {
 		str = str + "Transaction " + strconv.Itoa(i) + ": " + t.String() + "\n"
 	}
-	str = str + "\n // Creator:  " + b.Creator
 	return str
 }
 
@@ -120,57 +115,27 @@ func (b *Block) addTransaction(t *Transaction, c *Chain) (isFull bool) {
 	return len(b.Transactions) == cap(b.Transactions)
 }
 
-// isBlockValid makes sure block is valid by checking index
-// and comparing the hash of the previous block
-func (bl *Block) validate(parent [32]byte) (isValid bool, hash [32]byte) {
-	merkle := merkleHash(bl.Transactions)
-	tmpBl := &Block{
-		Header: BlockHeader{
-			MerkleHash: merkle,
-			ParentHash: parent,
-			Timestamp:  bl.Header.Timestamp,
-			Nonce:      bl.Header.Nonce,
-		},
-	}
+// createProof will perform the computations required to generate a
+// proof of work for a block. A signal may be received on the channel
+// stop to indicate that the function should exit early.
+func (b *Block) createProof(prefixLen int, stop chan bool) (stopped bool) {
 
-	var data []byte
-	var buf bytes.Buffer
-	enc := json.NewEncoder(&buf)
-	err := enc.Encode(&tmpBl.Header)
-	if err != nil {
-		return false, hash
-	}
-
-	data = append(merkle[:], buf.Bytes()...)
-	log.Println("Recreated data is: ")
-	log.Println(hex.EncodeToString(data))
-	hash = sha256.Sum256(data)
-	log.Println("Recreated hash is: ")
-	log.Println("Hello")
-	log.Println(hex.EncodeToString(bl.Proof[:]))
-	log.Println(hex.EncodeToString(hash[:]))
-	if hash != bl.Proof{
-		return false, hash
-	}
+	start := time.Now()
+	log.Println("Starting POW")
 	
-	return true, hash
-}
-
-// SHA256 hasing
-// calculateHash is a simple SHA256 hashing function
-func (b *Block) CalculateHash(stop chan bool) ( stopped bool) {
-	//start := time.Now()
 	merkle := b.getMerkleHash()
 	altB := b
-	//prefix := strings.Repeat("0", prefixLen)
+	prefix := strings.Repeat("0", prefixLen)
 
 	b.Header.Timestamp = uint32(time.Now().Unix())
 	data := make([]byte, 0)
 	hash := *new([32]byte)
-	select {	
+loop:
+	for {
+		select {
 		case <-stop:
-			//log.Println("Interrupting POW after", time.Since(start))
-				//defer f.Close()
+			log.Println("Interrupting POW after", time.Since(start))
+			//defer f.Close()
 			return true
 		default:
 			var buf bytes.Buffer
@@ -179,15 +144,32 @@ func (b *Block) CalculateHash(stop chan bool) ( stopped bool) {
 			if err != nil {
 				log.Fatalln(err)
 			}
-			data = append(merkle[:], buf.Bytes()...)
+			data = append(merkle, buf.Bytes()...)
 			hash = sha256.Sum256(data)
-			b.Proof=hash
-	//bl.Header.Timestamp = uint32(time.Now().Unix())
-			randomInt := rand.Intn(100)
-			b.Stake= randomInt*len(b.Transactions)
+			if checkProof(prefix, prefixLen, hash) {
+				b.Proof = hash
+				break loop
+			}
+			altB.Header.Nonce++
+		}
+	}
+	log.Println("Finishing POW, took", time.Since(start))
+	f, err := os.OpenFile("pow.txt", os.O_APPEND|os.O_WRONLY, 0600)
+	if err != nil {
+		fmt.Println(err)	    
+		//panic(err)
 	}	
+	fmt.Fprintf(f, "%s \n", strconv.FormatFloat(time.Since(start).Seconds(), 'E', -1, 64))
+	defer f.Close()
+	//_, err = f.WriteString(time.Since(start).String()) 
+	///if err != nil {
+        //		log.Fatal(err)
+  	//}
+	//f.Close()
+	//fmt.Println("****************"+time.Since(start).String())
+	log.Println("Created data is:", hex.EncodeToString(data))
+	log.Println("Created hash is:", hex.EncodeToString(hash[:]))
 	return false
-	
 }
 
 // MerkleHash will get the hash of the transactions in a block.
@@ -217,6 +199,44 @@ func (b *Block) contains(t *Transaction) bool {
 	return false
 }
 
+// validate will validate the proof of work of a block
+// against its parent's hash.
+func (bl *Block) validate(parent [32]byte) (isValid bool, hash [32]byte) {
+
+	prefixLen := proofDifficultyBl
+	prefix := strings.Repeat("0", prefixLen)
+
+	merkle := merkleHash(bl.Transactions)
+
+	tmpBl := &Block{
+		Header: BlockHeader{
+			MerkleHash: merkle,
+			ParentHash: parent,
+			Timestamp:  bl.Header.Timestamp,
+			Nonce:      bl.Header.Nonce,
+		},
+	}
+
+	var data []byte
+	var buf bytes.Buffer
+	enc := json.NewEncoder(&buf)
+	err := enc.Encode(&tmpBl.Header)
+	if err != nil {
+		return false, hash
+	}
+
+	data = append(merkle[:], buf.Bytes()...)
+	log.Println("Recreated data is: ")
+	log.Println(hex.EncodeToString(data))
+	hash = sha256.Sum256(data)
+	log.Println("Recreated hash is: ")
+	log.Println(hex.EncodeToString(hash[:]))
+	if !checkProof(prefix, prefixLen, hash) || hash != bl.Proof {
+		return false, hash
+	}
+
+	return true, hash
+}
 
 // extractTransactions will gather all the transactions in a
 // slice of blocks.

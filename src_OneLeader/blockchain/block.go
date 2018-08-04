@@ -60,7 +60,7 @@ func NewBlock(c *Chain) (b *Block) {
 		Transactions: make([]Transaction, 0, blockSize),
 	}
 	if c==nil{
-	//	fmt.Println("Null chain")
+		fmt.Println("Null chain")
 		b.Tally =""
 		return b
 	}
@@ -158,7 +158,7 @@ func (bl *Block) validate(parent [32]byte) (isValid bool, hash [32]byte) {
 
 // SHA256 hasing
 // calculateHash is a simple SHA256 hashing function
-func (b *Block) CalculateHash(stop chan bool) ( stopped bool) {
+func (b *Block) CalculateHash() ( stopped bool) {
 	//start := time.Now()
 	merkle := b.getMerkleHash()
 	altB := b
@@ -168,10 +168,10 @@ func (b *Block) CalculateHash(stop chan bool) ( stopped bool) {
 	data := make([]byte, 0)
 	hash := *new([32]byte)
 	select {	
-		case <-stop:
-			//log.Println("Interrupting POW after", time.Since(start))
+		//case <-stop:
+		//	//log.Println("Interrupting POW after", time.Since(start))
 				//defer f.Close()
-			return true
+		//	return true
 		default:
 			var buf bytes.Buffer
 			enc := json.NewEncoder(&buf)

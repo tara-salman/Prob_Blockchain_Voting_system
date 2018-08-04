@@ -23,7 +23,6 @@ type Chain struct {
 	SeenTrs             chan map[string]bool
 	head                *Block
 	blocks              chan []Block
-	tmpblocks	    chan []Block
 	conf                Configuration
 	Tally		    string
 }
@@ -50,7 +49,6 @@ func NewChain() (c *Chain, err error) {
 	blocks := make([]Block, 0)
 	c.Tally = " Not Calculated yet"
 	c.blocks <- blocks
-	rand.Seed(time.Now().UTC().UnixNano())			
 	return c, nil
 }
 
@@ -135,20 +133,16 @@ func (c *Chain) removeSeenTransactions(trs []Transaction, seen map[string]bool) 
 
 // scheduleMining is responsible for the logic of creating new
 // blocks in the chain.
-func (c *Chain) scheduleMining(leader string, quit, stopMining, startMining, confirmStopped chan bool, wg *sync.WaitGroup) {
+func (c *Chain) scheduleMining(quit, stopMining, startMining, confirmStopped chan bool, wg *sync.WaitGroup) {
 	timer := time.NewTimer(time.Second)
 start:
 
 	log.Println("Waiting for the signal to start mining")
-	//fmt.Println(startMining)
 	_ = <-startMining
-	//fmt.Println("Here") 
 	log.Println("Got the signal, about to start mining")
 
 loop:
-	
 	for {
-		//fmt.Println("Start")
 		select {
 
 		default:
@@ -159,12 +153,10 @@ loop:
 
 			// Get the pool and see if it is longer than the constant blockSize
 			pool := <-c.TransactionPool
-			//fmt.Println(len(pool))
 			if len(pool) >= blockSize {
 				// if so, we will put blockSize worth of transactions into
 				// the TransactionsReady channel, and replace the rest of the
 				// transactions
-
 				c.TransactionsReady <- pool[:blockSize]
 				c.TransactionPool <- pool[blockSize:]
 			} else {
@@ -181,14 +173,12 @@ loop:
 
 		case <-stopMining:
 			log.Println("Mining process received signal to stop activities")
-			//fmt.Println("Mining process received signal to stop activities")
 			c.CurrentTransactions <- make([]Transaction, 0)
 			confirmStopped <- true
 			goto start
 
 		case blockPool := <-c.TransactionsReady:
 			log.Println("We have enough transactions to create a block")
-			//fmt.Println("We have enough transactions to create a block")
 			// make a backup in case we need to stop mining
 			tmpTrs := blockPool
 
@@ -221,60 +211,41 @@ loop:
 			// We choose our block or other people block based on the the slake in the block
 			
 			// compute block hash until created or stopped by new longest chain
-
-			//leader := make (chan int,5)			
-			//	leaderNo := rand.Intn(1)
-			//leader <-leaderNo
-			//fmt.Println(leaderNo)
+			leaderNo:= rand.Intn(4)
+			fmt.Println(leaderNo)
 			stop:=true 
-			/*if (c.GetVoteToken()==leader){
-			*/
-			//time.Sleep(time.Duration(rand.Intn(10)) * time.Second)
-			stop = c.head.CalculateHash(stopMining)
-			//	stop =false
-			//}
-			/*if (leaderNo==1 && c.GetVoteToken()=="Bp"){
+			if (leaderNo==0 && c.GetVoteToken()=="Ln"){
 				stop = c.head.CalculateHash(stopMining)
-				
-			//	stop=false
-			}
-			if (leaderNo==2 && c.GetVoteToken()=="c2"){
-				stop= c.head.CalculateHash(stopMining)
-			//	stop=false
-			} 
-			if (leaderNo==3 && c.GetVoteToken()=="Ds"){
-				stop = c.head.CalculateHash(stopMining)
-			//	stop=false
-			}*/
-			
-			
-				
-				
-						/*} else {
+			} else {
+				if (leaderNo==1 && c.GetVoteToken()=="Bp"){
+					stop = c.head.CalculateHash(stopMining)
+				} else {
+					if (leaderNo==2 && c.GetVoteToken()=="c2"){
+						stop= c.head.CalculateHash(stopMining)
+					} else{	
+						if (leaderNo==3 && c.GetVoteToken()=="Ds"){
+							stop = c.head.CalculateHash(stopMining)
+						} else {
 							time.Sleep(time.Duration(rand.Intn(100)) * time.Microsecond)
 						}
 					}
 				}
-			}*/
-			//fmt.Println(stop) */
+			}
+
 			if stop {
 				
 				log.Println("Mining process received signal to stop activities")
-				//tmpTrs2 := <-c.CurrentTransactions
-				//fmt.Println(tmpTrs)
+
 				// notify what transactions we were working with
-				//if tmpTrs2 !=tmpTrs {
 				c.CurrentTransactions <- tmpTrs
-				//}
-				//fmt.Println("Mining process received signal to stop activities")
 				c.head = NewBlock(c)
 				confirmStopped <- true
-				//fmt.Println("hello") 
+
 				goto start
 			} else {
 				
 				log.Println("Mining process created a block")
-				fmt.Println("I created a block")
+					
 				seenTrs := <-c.SeenTrs
 				for _, tr := range c.head.Transactions {
 						seenTrs[tr.Header.Signature.R.String()] = true
@@ -308,7 +279,7 @@ loop:
 // Start will begin some of the background routines required for the running
 // of the blockchain such as searching for new peers, mining blocks, handling
 // chain updates, and listening for new key shares.
-func (c *Chain) Start(leader string, delay int, quit, stop, start, confirm chan bool, w *sync.WaitGroup) {
+func (c *Chain) Start(delay int, quit, stop, start, confirm chan bool, w *sync.WaitGroup) {
 
 	// check for new peers every "delay" seconds
 	log.Println("Starting peer syncing process...")
@@ -316,7 +287,7 @@ func (c *Chain) Start(leader string, delay int, quit, stop, start, confirm chan 
 
 	// be processing transactions aka making blocks
 	log.Println("Starting mining process...")
-	go c.scheduleMining(leader, quit, stop, start, confirm, w)
+	go c.scheduleMining(quit, stop, start, confirm, w)
 
 	// be ready to process new blocks and consensus forming
 	log.Println("Starting chain management process...")
@@ -414,12 +385,11 @@ loop:
 			if valid {
 
 				log.Println("Sending signal to stop mining")
-								
-				stopMining <- true
+				//stopMining <- true
 
 				_ = <-confirmStopped
 				log.Println("We have stopped mining")
-				//fmt.Println("Sending signal to stop mining")
+
 				// set the new chain of blocks
 				oldBlocks := <-c.blocks
 				c.blocks <- newBlocks
@@ -450,7 +420,7 @@ loop:
 				}
 				c.Tally =tally.String()
 
-               	 		go c.broadcastOldTransactions(&newPool)
+                go c.broadcastOldTransactions(&newPool)
 
 				c.TransactionPool <- newPool
 
@@ -460,8 +430,6 @@ loop:
 				startMining <- true
 			} else {
 				log.Println("Alt chain was not valid")
-				//time.Sleep(1000 * time.Microsecond)
-				//startMining <- true
 			}
 		}
 	}

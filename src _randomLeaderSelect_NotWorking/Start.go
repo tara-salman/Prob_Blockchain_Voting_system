@@ -24,8 +24,6 @@ var (
 
 	// to signal to start mining
 	start = make(chan bool, 1)
-	//Leader selection
-	Leader string 
 
 	// to signal to confirm stopped mining
 	confirm = make(chan bool, 1)
@@ -46,17 +44,17 @@ func main() {
 
 	log.SetOutput(f)
 	log.SetFlags(log.Ltime | log.Lmicroseconds | log.Lshortfile)
-	
+
 	
 	log.Println("Setting up network config")
 
 	var bc *Blockchain =new(Blockchain)
-	bc.Init(os.Args[1],os.Args[2]) 
+	bc.Init(os.Args[1]) 
 
 	fmt.Println("Welcome to voting system.")
 	
 	sum := 1
-	for sum < 4{
+	for sum < 101{
 		bc.Decide( strconv.FormatFloat(float64(sum)/float64(100), 'E', -1, 64), "1")		
 		sum += 1
 	} 	
@@ -138,7 +136,7 @@ loop:
 
 	
 }
-func (bc *Blockchain) Init (logname string,leader string) {
+func (bc *Blockchain) Init ( logname string) {
 	var err error 
 	bc.chain, err = blockchain.NewChain()
 	if err != nil {
@@ -151,17 +149,17 @@ func (bc *Blockchain) Init (logname string,leader string) {
 
 //	log.Println("Setting up network config")
 
-	var syncDelay int = 5
+	var syncDelay int = 10
 	
-	wg.Add(20000)
-	bc.chain.Start(leader, syncDelay, quit, stop, start, confirm, &wg)
+	wg.Add(4)
+	bc.chain.Start(syncDelay, quit, stop, start, confirm, &wg)
 	start <- true
 	//bc.chain = c
 	//return bc
 }
 func  (bc *Blockchain) Decide(input string, eventIDs string) {
 	vt := bc.chain.GetVoteToken()
-	//log.Println("Hello")
+	log.Println("Hello")
 	fmt.Println("Your vote token is:", vt)
 	token := vt
 	ballot := new(election.Ballot)

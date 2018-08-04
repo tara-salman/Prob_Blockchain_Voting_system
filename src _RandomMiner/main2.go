@@ -8,7 +8,6 @@ import (
 	"os"
 	"sync"
 	"strconv"
-	"time"
 )
 
 var (
@@ -24,8 +23,6 @@ var (
 
 	// to signal to start mining
 	start = make(chan bool, 1)
-	//Leader selection
-	Leader string 
 
 	// to signal to confirm stopped mining
 	confirm = make(chan bool, 1)
@@ -36,47 +33,19 @@ type Blockchain struct{
 	wg sync.WaitGroup
 }
 
-func main() {
-	f, err := os.OpenFile(os.Args[1]+".log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
-	if err != nil {
-		fmt.Println("Can't open file")		
-		panic(err)
-	}
-	defer f.Close()
-
-	log.SetOutput(f)
-	log.SetFlags(log.Ltime | log.Lmicroseconds | log.Lshortfile)
-	
-	
-	log.Println("Setting up network config")
-
+func Start() {
 	var bc *Blockchain =new(Blockchain)
-	bc.Init(os.Args[1],os.Args[2]) 
+	bc.Init("0.peer.json") 
 
 	fmt.Println("Welcome to voting system.")
 	
-	sum := 1
-	for sum < 4{
-		bc.Decide( strconv.FormatFloat(float64(sum)/float64(100), 'E', -1, 64), "1")		
-		sum += 1
-	} 	
-	//bc.Decide( "0.8", "2")		
-	//fmt.Printf("%v\n", waitMsg)
-	//log.Printf("%v\n", waitMsg)
-	//wg.Wait()
-	//log.Println(bc.chain)
-
-
-	bc.GetChain()
-	bc.GetTally()
-	
-	
+	bc.Decide( "0.6", "1")
 loop:
 	/*for {
 		fmt.Printf("")
 	}*/
 	for {
-		var input string 
+		var input string
 		fmt.Scanf("%v\n", &input)
 
 		switch input {
@@ -131,37 +100,46 @@ loop:
 		}
 
 	}
+
 	fmt.Printf("%v\n", waitMsg)
 	log.Printf("%v\n", waitMsg)
 	wg.Wait()
 	log.Println(bc.chain)
-
-	
 }
-func (bc *Blockchain) Init (logname string,leader string) {
-	var err error 
+func (bc *Blockchain) Init ( logname string) {
+	f, err := os.OpenFile(logname+".log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	if err != nil {
+		fmt.Println("Can't open file")		
+		panic(err)
+	}
+	defer f.Close()
+
+	log.SetOutput(f)
+	log.SetFlags(log.Ltime | log.Lmicroseconds | log.Lshortfile)
+
 	bc.chain, err = blockchain.NewChain()
 	if err != nil {
 		fmt.Println("Can't do a chain ")		
 		panic(err)
-	}	
+	}
+	log.Println("Setting up network config")
+
 	filename := string(logname)
-	
+
 	bc.chain.Init(filename)
 
-//	log.Println("Setting up network config")
-
-	var syncDelay int = 5
 	
-	wg.Add(20000)
-	bc.chain.Start(leader, syncDelay, quit, stop, start, confirm, &wg)
+
+	var syncDelay int = 10
+	
+	wg.Add(4)
+	bc.chain.Start(syncDelay, quit, stop, start, confirm, &wg)
 	start <- true
 	//bc.chain = c
 	//return bc
 }
 func  (bc *Blockchain) Decide(input string, eventIDs string) {
 	vt := bc.chain.GetVoteToken()
-	//log.Println("Hello")
 	fmt.Println("Your vote token is:", vt)
 	token := vt
 	ballot := new(election.Ballot)
@@ -183,25 +161,5 @@ func  (bc *Blockchain) Decide(input string, eventIDs string) {
 		go bc.chain.ReceiveTransaction(tr, nil)
 
 	}
-
 }
-func (bc *Blockchain) GetChain () {
-	time.Sleep(10*time.Second) 
-	fmt.Println("Entering print chain")
-	fmt.Println(bc.chain)
-	fmt.Println("Exited print chain")
-}
-func (bc *Blockchain) GetTally () {
-	time.Sleep(10*time.Second) 	
-	ballots := bc.chain.CollectBallots()
-	format := bc.chain.GetFormat()
-	key := bc.chain.GetElectionKey()
-	fmt.Println("Calculating the tally...")
-	tally, err := format.Tally(ballots, &key)
-	if err != nil {
-		fmt.Println("Error calculating tally")
-	}
-	fmt.Println(tally)
-}
-
 

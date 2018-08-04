@@ -60,7 +60,7 @@ func NewBlock(c *Chain) (b *Block) {
 		Transactions: make([]Transaction, 0, blockSize),
 	}
 	if c==nil{
-	//	fmt.Println("Null chain")
+		fmt.Println("Null chain")
 		b.Tally =""
 		return b
 	}

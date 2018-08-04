@@ -56,7 +56,7 @@ func main() {
 	fmt.Println("Welcome to voting system.")
 	
 	sum := 1
-	for sum < 4{
+	for sum < 11{
 		bc.Decide( strconv.FormatFloat(float64(sum)/float64(100), 'E', -1, 64), "1")		
 		sum += 1
 	} 	

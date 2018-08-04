@@ -105,7 +105,7 @@ func (c *Chain) ReceiveTransaction(t *Transaction, _ *struct{}) (err error) {
 	if _, ok := seen[t.Header.Signature.R.String()]; ok {
 		c.SeenTrs <- seen
 		c.TransactionPool <- pool
-		log.Println("Seen Transaction "+t.String())
+		log.Println("Seen Transaction")
 		return nil
 	}
 
