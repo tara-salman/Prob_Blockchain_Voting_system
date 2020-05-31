@@ -1,1 +1,3 @@
-All of your source code (and other program resources) should be placed in this sub-directory.
+This source code is extending a blockchain voting system to probabilistic blockchain. Original code https://github.com/CPSSD/voting 
+
+
